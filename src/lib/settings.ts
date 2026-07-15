@@ -23,6 +23,13 @@ const defaults: Settings = {
   geminiModel: 'gemini-flash-lite-latest',
   senderFilters: [...DEFAULT_SENDER_FILTERS],
   lookbackDays: 30,
+  syncUrl: '',
+  syncId: '',
+  syncPassphrase: '',
+  syncAuto: false,
+  lastSyncedVersion: 0,
+  lastSyncedAt: 0,
+  deviceId: '',
 }
 
 // models Google has retired for new API keys → the alias that replaces them
@@ -46,6 +53,14 @@ function load(): Settings {
 }
 
 export const settings = reactive<Settings>(load())
+
+// give this device a stable label the first time
+if (!settings.deviceId) {
+  const platform = /iphone|ipad|android/i.test(navigator.userAgent)
+    ? 'mobile'
+    : 'desktop'
+  settings.deviceId = `${platform}-${Math.random().toString(36).slice(2, 6)}`
+}
 
 watch(
   settings,

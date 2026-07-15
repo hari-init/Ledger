@@ -7,10 +7,43 @@ import { listGeminiModels } from '../lib/gemini'
 import { seedDemoData, removeDemoData } from '../lib/demo'
 import { parseToCents, formatCents } from '../lib/money'
 import AppSelect from '../components/AppSelect.vue'
+import {
+  pushToCloud,
+  pullFromCloud,
+  isConfigured,
+  newSyncId,
+  syncStatus,
+} from '../lib/cloudSync'
 
 const categories = useLiveQuery(() => db.categories.orderBy('order').toArray(), [])
 const rules = useLiveQuery(() => db.rules.orderBy('merchant').toArray(), [])
 const deleteRule = (merchant: string) => db.rules.delete(merchant)
+
+// cloud sync
+const showPass = ref(false)
+function genSyncId() {
+  settings.syncId = newSyncId()
+}
+async function doPush() {
+  try {
+    await pushToCloud()
+    flash('Ledger pushed to the cloud')
+  } catch (e) {
+    flash((e as Error).message)
+  }
+}
+async function doPull(force = false) {
+  try {
+    const r = await pullFromCloud(force)
+    flash(r === 'applied' ? 'Pulled latest from the cloud' : r === 'empty' ? 'Nothing in the cloud yet' : 'Already up to date')
+  } catch (e) {
+    flash((e as Error).message)
+  }
+}
+function lastSyncedLabel() {
+  if (!settings.lastSyncedAt) return 'never synced'
+  return `last synced ${new Date(settings.lastSyncedAt).toLocaleString('en-CA', { dateStyle: 'medium', timeStyle: 'short' })} · this device: ${settings.deviceId}`
+}
 const status = ref('')
 const flash = (s: string) => {
   status.value = s
@@ -293,6 +326,71 @@ const origin = location.origin
       <p class="text-[10px] text-muted mt-3 leading-relaxed">
         Everything lives in this browser (IndexedDB + localStorage). Export regularly if you care
         about the history — clearing site data clears the ledger. Budget for this app: {{ formatCents(0) }}.
+      </p>
+    </section>
+
+    <!-- cloud sync -->
+    <section class="card p-4 mt-5">
+      <h2 class="text-[10px] uppercase tracking-[0.14em] text-muted mb-1">
+        Cloud sync (end-to-end encrypted)
+      </h2>
+      <p class="text-[10px] text-muted mb-3 leading-relaxed">
+        Optional. Sync your ledger across devices through your own free Cloudflare Worker. Your data
+        is encrypted with your passphrase <em>before</em> it leaves this device — the server only
+        ever stores ciphertext. Deploy steps are in <code>worker/README.md</code>.
+      </p>
+
+      <label class="label">Worker URL</label>
+      <input
+        v-model.trim="settings.syncUrl"
+        placeholder="https://ledger-sync.you.workers.dev"
+        autocomplete="off"
+      />
+
+      <label class="label mt-3">Sync ID (keep secret — it's the access key)</label>
+      <div class="flex gap-2">
+        <input v-model.trim="settings.syncId" placeholder="generate or paste" autocomplete="off" />
+        <button class="btn shrink-0" @click="genSyncId">Generate</button>
+      </div>
+
+      <label class="label mt-3">Passphrase (encrypts your data; lose it = unrecoverable)</label>
+      <div class="flex gap-2">
+        <input
+          v-model="settings.syncPassphrase"
+          :type="showPass ? 'text' : 'password'"
+          placeholder="a long passphrase"
+          autocomplete="off"
+        />
+        <button class="btn shrink-0" @click="showPass = !showPass">{{ showPass ? 'Hide' : 'Show' }}</button>
+      </div>
+
+      <label class="flex items-center gap-2 mt-3 text-xs cursor-pointer">
+        <input type="checkbox" v-model="settings.syncAuto" class="w-auto!" />
+        Auto sync — pull on open, push a few seconds after any change
+      </label>
+
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button class="btn btn-accent" :disabled="syncStatus.busy || !isConfigured()" @click="doPush">
+          {{ syncStatus.busy ? 'Working…' : 'Push now' }}
+        </button>
+        <button class="btn" :disabled="syncStatus.busy || !isConfigured()" @click="doPull(false)">
+          Pull now
+        </button>
+        <button
+          class="btn"
+          :disabled="syncStatus.busy || !isConfigured()"
+          title="Overwrite this device with the cloud copy (use when setting up a new device)"
+          @click="doPull(true)"
+        >
+          Force pull
+        </button>
+      </div>
+
+      <p class="text-[10px] text-muted mt-2">{{ lastSyncedLabel() }}</p>
+      <p v-if="syncStatus.error" class="text-[10px] text-accent mt-1">{{ syncStatus.error }}</p>
+      <p class="text-[10px] text-muted mt-2 leading-relaxed">
+        Conflicts are last-write-wins on the whole ledger — fine for one person across a couple of
+        devices. On a new device, set the same URL / ID / passphrase and use <strong>Force pull</strong>.
       </p>
     </section>
   </div>

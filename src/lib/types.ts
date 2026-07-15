@@ -66,6 +66,22 @@ export interface Settings {
   senderFilters: string[]
   /** how far back the first sync of an account looks */
   lookbackDays: number
+
+  // --- end-to-end-encrypted cross-device sync (all optional) ---
+  /** deployed Cloudflare Worker base URL */
+  syncUrl: string
+  /** unguessable id that names your encrypted blob + acts as the access secret */
+  syncId: string
+  /** passphrase the blob is encrypted with — never leaves this device except as ciphertext */
+  syncPassphrase: string
+  /** auto pull-on-open and push-on-change */
+  syncAuto: boolean
+  /** version (ms timestamp) of the last blob this device pushed or pulled */
+  lastSyncedVersion: number
+  /** wall-clock time of the last successful sync */
+  lastSyncedAt: number
+  /** stable per-device label, shown so you can tell which device last wrote */
+  deviceId: string
 }
 
 export interface EmailMessage {

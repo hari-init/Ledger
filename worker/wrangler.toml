@@ -1,0 +1,10 @@
+name = "ledger-sync"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# KV namespace that holds the encrypted blobs.
+# Create it once with:  npx wrangler kv namespace create LEDGER
+# then paste the printed id below.
+[[kv_namespaces]]
+binding = "LEDGER"
+id = "PASTE_KV_NAMESPACE_ID_HERE"
