@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+  /* make native controls (date picker, select popups, scrollbars) follow the
+     same light/dark preference as the app's own palette */
+  color-scheme: light dark;
+  --paper: #f6f4ee;
+  --paper-2: #eeebe2;
+  --ink: #191815;
+  --muted: #6f6d64;
+  --line: #dcd9cd;
+  --accent: #c73e14;
+  --accent-soft: #c73e1418;
+  --good: #2f6f4f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131311;
+    --paper-2: #1c1b18;
+    --ink: #e9e6dc;
+    --muted: #8f8c80;
+    --line: #2b2a25;
+    --accent: #ea6136;
+    --accent-soft: #ea61361f;
+    --good: #6fbf94;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  @apply bg-paper text-ink font-mono antialiased;
+  font-size: 14px;
+  text-rendering: optimizeLegibility;
+}
+
+/* utilitarian form controls */
+input, select, textarea {
+  @apply bg-paper border border-line rounded-none px-2.5 py-2 text-sm text-ink w-full outline-none;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  @apply border-accent;
+}
+input::placeholder, textarea::placeholder {
+  @apply text-muted;
+}
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'><path d='M0 0l4 5 4-5z' fill='%236f6d64'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 26px;
+}
+
+.label {
+  @apply block text-[10px] uppercase tracking-[0.14em] text-muted mb-1;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 border border-line px-3 py-2 text-xs uppercase tracking-[0.12em] cursor-pointer select-none whitespace-nowrap bg-paper text-ink;
+}
+.btn:hover { @apply border-ink; }
+.btn:disabled { @apply opacity-40 cursor-not-allowed; }
+.btn-accent {
+  @apply bg-accent text-paper border-accent;
+}
+.btn-accent:hover { @apply border-accent opacity-90; }
+
+.card {
+  @apply border border-line bg-paper;
+}
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+::selection { background: var(--accent); color: var(--paper); }
