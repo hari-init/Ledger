@@ -139,8 +139,24 @@ function schedulePush() {
   }, 4000)
 }
 
+// pull the latest when the app becomes active again (throttled), so a device
+// left open still picks up edits made on another device without a manual reload
+let lastAutoPull = 0
+function maybeAutoPull() {
+  if (!settings.syncAuto || !isConfigured() || syncStatus.busy) return
+  if (document.visibilityState !== 'visible') return
+  if (Date.now() - lastAutoPull < 8000) return
+  lastAutoPull = Date.now()
+  pullFromCloud().catch(() => {
+    /* offline / not reachable — surfaced on syncStatus */
+  })
+}
+
 let hooksInstalled = false
-/** Call once at startup: pull on open, and (if auto) push shortly after any change. */
+/**
+ * Call once at startup. Installs auto-push hooks and, when Auto sync is on,
+ * pulls the latest on open and whenever the app regains focus.
+ */
 export async function initCloudSync(): Promise<void> {
   if (!hooksInstalled) {
     hooksInstalled = true
@@ -149,8 +165,11 @@ export async function initCloudSync(): Promise<void> {
       table.hook('updating', schedulePush)
       table.hook('deleting', schedulePush)
     }
+    document.addEventListener('visibilitychange', maybeAutoPull)
+    window.addEventListener('focus', maybeAutoPull)
   }
   if (settings.syncAuto && isConfigured()) {
+    lastAutoPull = Date.now()
     try {
       await pullFromCloud()
     } catch {

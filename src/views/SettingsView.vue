@@ -366,7 +366,7 @@ const origin = location.origin
 
       <label class="flex items-center gap-2 mt-3 text-xs cursor-pointer">
         <input type="checkbox" v-model="settings.syncAuto" class="w-auto!" />
-        Auto sync — pull on open, push a few seconds after any change
+        Auto sync — pull on open &amp; when you return to the app, push after any change
       </label>
 
       <div class="flex flex-wrap gap-2 mt-3">
