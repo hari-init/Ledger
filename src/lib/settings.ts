@@ -88,8 +88,23 @@ if (!settings.deviceId) {
   settings.deviceId = `${platform}-${Math.random().toString(36).slice(2, 6)}`
 }
 
+export function saveSettings() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(settings))
+  } catch (e) {
+    console.error('Failed to save settings to localStorage:', e)
+  }
+}
+
+// Synchronously persist every change to localStorage immediately on every keystroke
 watch(
   settings,
-  (v) => localStorage.setItem(KEY, JSON.stringify(v)),
-  { deep: true },
+  () => saveSettings(),
+  { deep: true, flush: 'sync' },
 )
+
+// Ensure settings are flushed to localStorage on page refresh or tab close
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', saveSettings)
+  window.addEventListener('pagehide', saveSettings)
+}

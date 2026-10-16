@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { db } from '../lib/db'
 import { useLiveQuery } from '../lib/useLiveQuery'
-import { settings, DEFAULT_SENDER_FILTERS } from '../lib/settings'
+import { settings, DEFAULT_SENDER_FILTERS, saveSettings } from '../lib/settings'
 import { listGeminiModels } from '../lib/gemini'
 import { testBedrockConnection } from '../lib/bedrock'
 import { seedDemoData, removeDemoData } from '../lib/demo'
@@ -101,6 +101,29 @@ async function testBedrock() {
   } finally {
     testingBedrock.value = false
   }
+}
+
+// AWS keys display and manual save
+const showAwsSecret = ref(false)
+const savedFeedback = ref(false)
+let savedTimer: ReturnType<typeof setTimeout> | null = null
+
+function manualSave() {
+  saveSettings()
+  savedFeedback.value = true
+  if (savedTimer) clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => {
+    savedFeedback.value = false
+  }, 3000)
+}
+
+function onKeyInput() {
+  saveSettings()
+  savedFeedback.value = true
+  if (savedTimer) clearTimeout(savedTimer)
+  savedTimer = setTimeout(() => {
+    savedFeedback.value = false
+  }, 2000)
 }
 
 // sender filters as editable text
@@ -287,16 +310,27 @@ const origin = location.origin
                   v-model.trim="settings.awsAccessKeyId"
                   placeholder="AKIA… or leave blank"
                   autocomplete="off"
+                  @input="onKeyInput"
                 />
               </div>
               <div>
                 <label class="label">AWS Secret Access Key <span class="text-[10px] text-muted">(optional if in env)</span></label>
-                <input
-                  v-model.trim="settings.awsSecretAccessKey"
-                  type="password"
-                  placeholder="Secret key… or leave blank"
-                  autocomplete="off"
-                />
+                <div class="flex gap-2">
+                  <input
+                    v-model.trim="settings.awsSecretAccessKey"
+                    :type="showAwsSecret ? 'text' : 'password'"
+                    placeholder="Secret key… or leave blank"
+                    autocomplete="new-password"
+                    @input="onKeyInput"
+                  />
+                  <button
+                    type="button"
+                    class="btn py-1! px-2.5 text-xs shrink-0"
+                    @click="showAwsSecret = !showAwsSecret"
+                  >
+                    {{ showAwsSecret ? 'Hide' : 'Show' }}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -307,6 +341,7 @@ const origin = location.origin
                   v-model.trim="settings.bedrockEndpoint"
                   placeholder="/api/bedrock"
                   autocomplete="off"
+                  @input="onKeyInput"
                 />
               </div>
               <div>
@@ -315,7 +350,7 @@ const origin = location.origin
               </div>
             </div>
 
-            <div class="flex items-center gap-2 pt-1">
+            <div class="flex items-center gap-3 pt-1">
               <button
                 class="btn btn-accent py-1!"
                 :disabled="testingBedrock"
@@ -323,6 +358,16 @@ const origin = location.origin
               >
                 {{ testingBedrock ? 'Testing Nova Lite…' : 'Test Bedrock connection' }}
               </button>
+              <button
+                type="button"
+                class="btn py-1!"
+                @click="manualSave"
+              >
+                Save Settings
+              </button>
+              <span v-if="savedFeedback" class="text-xs text-good font-mono">
+                Saved locally ✓
+              </span>
             </div>
           </div>
 
