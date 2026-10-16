@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { db } from './lib/db'
 import { useLiveQuery } from './lib/useLiveQuery'
 import { openNewTxn } from './lib/ui'
 import TransactionSheet from './components/TransactionSheet.vue'
 
 const route = useRoute()
+const router = useRouter()
 const reviewCount = useLiveQuery(
   () => db.transactions.where('status').equals('review').count(),
   0,
@@ -18,6 +19,12 @@ const tabs = [
   { to: '/sync', name: 'sync', label: 'Sync' },
   { to: '/settings', name: 'settings', label: 'Settings' },
 ]
+
+function navigateTab(to: string) {
+  if (route.path !== to) {
+    router.push(to).catch(() => {})
+  }
+}
 </script>
 
 <template>
@@ -69,24 +76,26 @@ const tabs = [
 
     <!-- mobile bottom nav -->
     <nav
-      class="md:hidden fixed bottom-0 inset-x-0 z-20 grid grid-cols-5 border-t border-line bg-paper"
-      style="padding-bottom: env(safe-area-inset-bottom)"
+      class="md:hidden fixed bottom-0 inset-x-0 z-30 grid grid-cols-5 border-t border-line bg-paper select-none"
+      style="padding-bottom: max(0.25rem, env(safe-area-inset-bottom))"
     >
-      <RouterLink
+      <button
         v-for="t in tabs"
         :key="t.name"
-        :to="t.to"
-        class="relative py-3 text-center text-[10px] uppercase tracking-[0.12em] text-muted"
-        :class="route.name === t.name && 'text-ink'"
+        type="button"
+        class="relative flex flex-col items-center justify-center py-3 text-center text-[10px] uppercase tracking-[0.12em] text-muted cursor-pointer transition-colors active:opacity-60 touch-manipulation focus:outline-none"
+        :class="route.name === t.name ? 'text-ink font-semibold' : 'hover:text-ink'"
+        @click="navigateTab(t.to)"
       >
         <span
           v-if="route.name === t.name"
           class="absolute top-0 left-1/4 right-1/4 h-0.5 bg-accent"
         />
-        {{ t.label === 'Transactions' ? 'Txns' : t.label }}
-        <span v-if="t.name === 'sync' && reviewCount" class="text-accent">
-          ({{ reviewCount }})</span>
-      </RouterLink>
+        <span>{{ t.label === 'Transactions' ? 'Txns' : t.label }}</span>
+        <span v-if="t.name === 'sync' && reviewCount" class="text-accent text-[9px]">
+          ({{ reviewCount }})
+        </span>
+      </button>
     </nav>
 
     <TransactionSheet />
