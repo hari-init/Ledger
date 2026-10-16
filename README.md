@@ -1,10 +1,10 @@
 # Ledger
 
 A personal expense tracker that pulls transaction-alert emails from your Gmail account(s),
-parses them into expenses with Gemini, and gives you a dashboard — all in the browser, all on
+parses them into expenses with Amazon Bedrock (Nova Lite) or Gemini, and gives you a dashboard — all on
 your device.
 
-**Runs entirely free.** No server, no database, no subscriptions.
+**Runs entirely on your device.** No external database, no subscriptions.
 
 ## What it does
 
@@ -50,15 +50,16 @@ npm run dev
 Try it right away with **Settings → Seed demo data**, or **Sync → Test harness** to push sample
 bank emails through the real import pipeline (no keys needed).
 
-## One-time setup for real email sync (all free)
-
+## One-time setup for real email sync
+ 
 The in-app **Settings** page walks you through this with links:
 
 1. **Google OAuth Client ID** — create a Google Cloud project, enable the Gmail API, set the OAuth
    consent screen to *Testing* mode (add every Gmail you'll sync as a test user), and create a
    *Web application* OAuth client with your app origin under Authorized JavaScript origins.
-2. **Gemini API key** — from [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-   (free tier, no card).
+2. **AI Engine (AWS Bedrock Nova Lite or Gemini)**:
+   - **AWS Bedrock (`amazon.nova-lite-v1:0`)**: Local dev proxy automatically uses credentials from `~/.aws/credentials`, `.env`, or keys entered in Settings.
+   - **Gemini**: API key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 3. Turn on transaction-alert emails in each bank's app.
 
 ## Build & deploy

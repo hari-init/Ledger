@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1152.0",
     "@tailwindcss/vite": "^4.3.2",
     "dexie": "^4.4.4",
     "tailwindcss": "^4.3.2",

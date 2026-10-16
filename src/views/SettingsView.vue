@@ -4,6 +4,7 @@ import { db } from '../lib/db'
 import { useLiveQuery } from '../lib/useLiveQuery'
 import { settings, DEFAULT_SENDER_FILTERS } from '../lib/settings'
 import { listGeminiModels } from '../lib/gemini'
+import { testBedrockConnection } from '../lib/bedrock'
 import { seedDemoData, removeDemoData } from '../lib/demo'
 import { parseToCents, formatCents } from '../lib/money'
 import AppSelect from '../components/AppSelect.vue'
@@ -66,6 +67,39 @@ async function loadModels() {
     flash(`Found ${modelOptions.value.length} usable models`)
   } catch (e) {
     flash((e as Error).message)
+  }
+}
+
+// AWS Bedrock configuration options
+const bedrockModelOptions = [
+  { value: 'amazon.nova-lite-v1:0', label: 'amazon.nova-lite-v1:0 (Nova Lite — Recommended)' },
+  { value: 'us.amazon.nova-lite-v1:0', label: 'us.amazon.nova-lite-v1:0 (Nova Lite — US Profile)' },
+  { value: 'amazon.nova-micro-v1:0', label: 'amazon.nova-micro-v1:0 (Nova Micro — Fast, text-only)' },
+  { value: 'amazon.nova-pro-v1:0', label: 'amazon.nova-pro-v1:0 (Nova Pro — Advanced reasoning)' },
+]
+
+const bedrockRegionOptions = [
+  { value: 'us-east-1', label: 'us-east-1 (N. Virginia)' },
+  { value: 'us-east-2', label: 'us-east-2 (Ohio)' },
+  { value: 'us-west-2', label: 'us-west-2 (Oregon)' },
+  { value: 'eu-west-1', label: 'eu-west-1 (Ireland)' },
+  { value: 'ap-northeast-1', label: 'ap-northeast-1 (Tokyo)' },
+]
+
+const testingBedrock = ref(false)
+async function testBedrock() {
+  testingBedrock.value = true
+  try {
+    const res = await testBedrockConnection(settings)
+    if (res.ok) {
+      flash(`✓ ${res.message}`)
+    } else {
+      flash(`✕ Error: ${res.message}`)
+    }
+  } catch (e: any) {
+    flash(`✕ ${e.message || String(e)}`)
+  } finally {
+    testingBedrock.value = false
   }
 }
 
@@ -202,36 +236,126 @@ const origin = location.origin
         />
       </details>
 
-      <details class="mb-3">
+      <details class="mb-3" open>
         <summary class="text-xs cursor-pointer select-none">
-          <span class="text-accent">2.</span> Gemini API key — parses emails into expenses
+          <span class="text-accent">2.</span> AI engine — parses emails &amp; statements into expenses
         </summary>
-        <ol class="text-xs text-muted leading-relaxed list-decimal ml-5 mt-2 space-y-1">
-          <li>
-            Go to
-            <a class="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com/apikey</a>
-            and click <em>Create API key</em> (free tier, no card needed).
-          </li>
-          <li>Paste it below. It is stored only in this browser.</li>
-        </ol>
-        <label class="label mt-3">Gemini API key</label>
-        <input
-          v-model.trim="settings.geminiApiKey"
-          type="password"
-          placeholder="AIza…"
-          autocomplete="off"
-        />
-        <div class="grid grid-cols-2 gap-3 mt-3">
-          <div>
-            <label class="label">Model</label>
-            <AppSelect v-model="settings.geminiModel" :options="modelSelectOptions" />
-            <button class="btn py-1! mt-1.5" @click="loadModels">
-              Fetch models my key can use
+        <div class="mt-2 space-y-3">
+          <!-- Provider Picker -->
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="btn py-1 text-xs"
+              :class="settings.aiProvider === 'bedrock' ? 'btn-accent' : ''"
+              @click="settings.aiProvider = 'bedrock'"
+            >
+              AWS Bedrock (Amazon Nova Lite)
+            </button>
+            <button
+              type="button"
+              class="btn py-1 text-xs"
+              :class="settings.aiProvider === 'gemini' ? 'btn-accent' : ''"
+              @click="settings.aiProvider = 'gemini'"
+            >
+              Google Gemini
             </button>
           </div>
-          <div>
-            <label class="label">First-sync lookback (days)</label>
-            <input v-model.number="settings.lookbackDays" type="number" min="1" max="365" />
+
+          <!-- Bedrock Configuration -->
+          <div v-if="settings.aiProvider === 'bedrock'" class="space-y-3 border-t border-line/60 pt-3">
+            <p class="text-xs text-muted leading-relaxed">
+              Using <strong>Amazon Bedrock Nova Lite</strong> via the local Vite proxy (<code>/api/bedrock</code>)
+              which signs requests via SigV4 and bypasses browser CORS. If your environment has AWS CLI credentials
+              configured in <code>~/.aws/credentials</code> or <code>.env</code>, you can leave the access key fields blank.
+            </p>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label">Bedrock Model</label>
+                <AppSelect v-model="settings.bedrockModel" :options="bedrockModelOptions" />
+              </div>
+              <div>
+                <label class="label">AWS Region</label>
+                <AppSelect v-model="settings.bedrockRegion" :options="bedrockRegionOptions" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label">AWS Access Key ID <span class="text-[10px] text-muted">(optional if in env)</span></label>
+                <input
+                  v-model.trim="settings.awsAccessKeyId"
+                  placeholder="AKIA… or leave blank"
+                  autocomplete="off"
+                />
+              </div>
+              <div>
+                <label class="label">AWS Secret Access Key <span class="text-[10px] text-muted">(optional if in env)</span></label>
+                <input
+                  v-model.trim="settings.awsSecretAccessKey"
+                  type="password"
+                  placeholder="Secret key… or leave blank"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label">Proxy Endpoint</label>
+                <input
+                  v-model.trim="settings.bedrockEndpoint"
+                  placeholder="/api/bedrock"
+                  autocomplete="off"
+                />
+              </div>
+              <div>
+                <label class="label">First-sync lookback (days)</label>
+                <input v-model.number="settings.lookbackDays" type="number" min="1" max="365" />
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <button
+                class="btn btn-accent py-1!"
+                :disabled="testingBedrock"
+                @click="testBedrock"
+              >
+                {{ testingBedrock ? 'Testing Nova Lite…' : 'Test Bedrock connection' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Gemini Configuration -->
+          <div v-else class="space-y-3 border-t border-line/60 pt-3">
+            <ol class="text-xs text-muted leading-relaxed list-decimal ml-5 space-y-1">
+              <li>
+                Go to
+                <a class="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">aistudio.google.com/apikey</a>
+                and click <em>Create API key</em> (free tier, no card needed).
+              </li>
+              <li>Paste it below. It is stored only in this browser.</li>
+            </ol>
+            <label class="label">Gemini API key</label>
+            <input
+              v-model.trim="settings.geminiApiKey"
+              type="password"
+              placeholder="AIza…"
+              autocomplete="off"
+            />
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label">Model</label>
+                <AppSelect v-model="settings.geminiModel" :options="modelSelectOptions" />
+                <button class="btn py-1! mt-1.5" @click="loadModels">
+                  Fetch models my key can use
+                </button>
+              </div>
+              <div>
+                <label class="label">First-sync lookback (days)</label>
+                <input v-model.number="settings.lookbackDays" type="number" min="1" max="365" />
+              </div>
+            </div>
           </div>
         </div>
       </details>

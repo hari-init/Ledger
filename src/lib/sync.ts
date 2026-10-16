@@ -1,7 +1,7 @@
 import { db, newId, merchantKey, loadRuleMap } from './db'
 import { settings } from './settings'
 import { requestToken, buildQuery, listMessageIds, getMessage } from './gmail'
-import { parseEmailsWithGemini } from './gemini'
+import { parseEmails, getAiDisplayName } from './ai'
 import type { DocTxn, EmailMessage, ParsedEmail, SyncReport, Txn } from './types'
 
 export type ParseFn = (emails: EmailMessage[], categories: string[]) => Promise<ParsedEmail[]>
@@ -75,15 +75,13 @@ export async function syncAccount(
   }
 
   const categories = (await db.categories.orderBy('order').toArray()).map((c) => c.name)
-  log(`${email}: parsing ${emails.length} emails with Gemini…`)
+  log(`${email}: parsing ${emails.length} emails with ${getAiDisplayName()}…`)
   const parseFn: ParseFn =
     parse ??
     ((ems, cats) =>
-      parseEmailsWithGemini(
+      parseEmails(
         ems,
         cats,
-        settings.geminiApiKey,
-        settings.geminiModel,
         (d, t) => log(`${email}: parsed ${d}/${t}`),
         log,
       ))

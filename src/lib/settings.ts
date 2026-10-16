@@ -19,6 +19,13 @@ export const DEFAULT_SENDER_FILTERS = [
 
 const defaults: Settings = {
   oauthClientId: '',
+  aiProvider: 'bedrock',
+  bedrockModel: 'amazon.nova-lite-v1:0',
+  bedrockRegion: 'us-east-1',
+  bedrockEndpoint: '/api/bedrock',
+  awsAccessKeyId: '',
+  awsSecretAccessKey: '',
+  awsSessionToken: '',
   geminiApiKey: '',
   geminiModel: 'gemini-flash-lite-latest',
   senderFilters: [...DEFAULT_SENDER_FILTERS],
@@ -44,6 +51,12 @@ function load(): Settings {
     if (raw) {
       const s: Settings = { ...defaults, ...JSON.parse(raw) }
       s.geminiModel = MODEL_MIGRATIONS[s.geminiModel] ?? s.geminiModel
+      if (!s.aiProvider) {
+        s.aiProvider = s.geminiApiKey ? 'gemini' : 'bedrock'
+      }
+      if (!s.bedrockModel) s.bedrockModel = 'amazon.nova-lite-v1:0'
+      if (!s.bedrockRegion) s.bedrockRegion = 'us-east-1'
+      if (!s.bedrockEndpoint) s.bedrockEndpoint = '/api/bedrock'
       return s
     }
   } catch {
