@@ -56,13 +56,26 @@ function load(): Settings {
       }
       if (!s.bedrockModel) s.bedrockModel = 'amazon.nova-lite-v1:0'
       if (!s.bedrockRegion) s.bedrockRegion = 'us-east-1'
-      if (!s.bedrockEndpoint) s.bedrockEndpoint = '/api/bedrock'
+      const isPages = typeof window !== 'undefined' && window.location.hostname.includes('.pages.dev')
+      if (isPages && (!s.bedrockEndpoint || s.bedrockEndpoint === '/api/bedrock')) {
+        s.bedrockEndpoint = 'https://ledger-sync.hravi.workers.dev/api/bedrock'
+      } else if (!s.bedrockEndpoint) {
+        s.bedrockEndpoint = '/api/bedrock'
+      }
+      if (isPages && !s.syncUrl) {
+        s.syncUrl = 'https://ledger-sync.hravi.workers.dev'
+      }
       return s
     }
   } catch {
     /* corrupted settings fall back to defaults */
   }
-  return { ...defaults }
+  const s = { ...defaults }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('.pages.dev')) {
+    s.bedrockEndpoint = 'https://ledger-sync.hravi.workers.dev/api/bedrock'
+    s.syncUrl = 'https://ledger-sync.hravi.workers.dev'
+  }
+  return s
 }
 
 export const settings = reactive<Settings>(load())
