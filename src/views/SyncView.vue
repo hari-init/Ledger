@@ -5,7 +5,7 @@ import { syncState, syncLog as log } from '../lib/syncState'
 import { useLiveQuery } from '../lib/useLiveQuery'
 import { settings } from '../lib/settings'
 import { connectAccount, syncAccount, importParsedEmails, importDocumentTxns } from '../lib/sync'
-import { parseEmailsWithGemini, parseDocumentWithGemini } from '../lib/gemini'
+import { parseEmails, parseDocument, isAiConfigured, getAiDisplayName } from '../lib/ai'
 import { FIXTURE_EMAILS, mockParseEmails } from '../lib/fixtures'
 import { formatCents } from '../lib/money'
 import { openEditTxn } from '../lib/ui'
@@ -20,7 +20,8 @@ const reviewTxns = useLiveQuery(
 const setupMissing = computed(() => {
   const missing: string[] = []
   if (!settings.oauthClientId) missing.push('Google OAuth Client ID')
-  if (!settings.geminiApiKey) missing.push('Gemini API key')
+  const ai = isAiConfigured()
+  if (!ai.ok && ai.reason) missing.push(ai.reason)
   return missing
 })
 
@@ -88,7 +89,8 @@ function onFileChosen(e: Event) {
   if (!file) return
   run(async () => {
     try {
-      if (!settings.geminiApiKey) throw new Error('Add your Gemini API key in Settings first')
+      const ai = isAiConfigured()
+      if (!ai.ok) throw new Error(ai.reason || 'AI is not configured — see Settings')
       if (file.size > 15 * 1024 * 1024)
         throw new Error('File is over 15 MB — split the statement or export a smaller range')
       log(`import: reading ${file.name} (${(file.size / 1024).toFixed(0)} KB)`)
@@ -97,14 +99,12 @@ function onFileChosen(e: Event) {
         ? { text: await file.text() }
         : { mimeType: file.type || 'application/pdf', base64: await readAsBase64(file) }
       const categories = (await db.categories.orderBy('order').toArray()).map((c) => c.name)
-      const parsed = await parseDocumentWithGemini(
+      const parsed = await parseDocument(
         input,
         categories,
-        settings.geminiApiKey,
-        settings.geminiModel,
         log,
       )
-      log(`import: Gemini found ${parsed.length} transactions in ${file.name}`)
+      log(`import: ${getAiDisplayName()} found ${parsed.length} transactions in ${file.name}`)
       const res = await importDocumentTxns(parsed, `imported from ${file.name}`, categories)
       log(
         `import: ${res.imported} queued for review, ${res.duplicates} duplicates, ${res.skipped} skipped`,
@@ -130,14 +130,12 @@ const confirmAll = async () => {
 const runFixtures = () =>
   run(async () => {
     const categories = (await db.categories.orderBy('order').toArray()).map((c) => c.name)
-    const useGemini = !!settings.geminiApiKey
-    log(`fixture sync: ${FIXTURE_EMAILS.length} emails, parser = ${useGemini ? 'Gemini' : 'offline mock'}`)
-    const parsed = useGemini
-      ? await parseEmailsWithGemini(
+    const aiReady = isAiConfigured().ok
+    log(`fixture sync: ${FIXTURE_EMAILS.length} emails, parser = ${aiReady ? getAiDisplayName() : 'offline mock'}`)
+    const parsed = aiReady
+      ? await parseEmails(
           FIXTURE_EMAILS,
           categories,
-          settings.geminiApiKey,
-          settings.geminiModel,
           undefined,
           log,
         )
@@ -225,9 +223,8 @@ function lastSyncLabel(ts: number | null) {
       </div>
       <p class="text-xs text-muted leading-relaxed">
         Upload a bank / credit-card statement (PDF), a CSV export from online banking, or a
-        screenshot of a transaction list. Gemini reads it and every transaction lands in the review
-        queue below. This is the way to capture history your bank never emailed or texted — and it
-        only needs your Gemini API key.
+        screenshot of a transaction list. {{ getAiDisplayName() }} reads it and every transaction lands in the review
+        queue below. This is the way to capture history your bank never emailed or texted.
       </p>
       <input
         ref="fileInput"
@@ -287,7 +284,7 @@ function lastSyncLabel(ts: number | null) {
       <p class="text-xs text-muted mt-3 leading-relaxed">
         Runs 10 realistic Canadian alert emails (RBC / TD / Interac / Scotiabank / BMO / CIBC,
         including 2 non-transactions) through the exact same parse → dedupe → review-queue path as
-        a real sync. Uses Gemini if your key is set, otherwise an offline mock parser.
+        a real sync. Uses {{ getAiDisplayName() }} if configured, otherwise an offline mock parser.
       </p>
       <div class="flex flex-wrap gap-2 mt-3">
         <button class="btn btn-accent" :disabled="syncState.busy" @click="runFixtures">

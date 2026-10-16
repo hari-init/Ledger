@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { db } from '../lib/db'
-import { settings } from '../lib/settings'
-import { askAboutSpending } from '../lib/gemini'
+import { askAboutSpending, isAiConfigured, getAiDisplayName } from '../lib/ai'
 
 const question = ref('')
 const answer = ref('')
@@ -36,10 +35,11 @@ async function ask(q?: string) {
   answer.value = ''
   busy.value = true
   try {
-    if (!settings.geminiApiKey) throw new Error('Add your Gemini API key in Settings first')
+    const ai = isAiConfigured()
+    if (!ai.ok) throw new Error(ai.reason || 'Configure AI in Settings first')
     const { csv, count } = await buildCsv()
     if (count === 0) throw new Error('No transactions yet — add some or run a sync first')
-    answer.value = await askAboutSpending(query, csv, settings.geminiApiKey, settings.geminiModel)
+    answer.value = await askAboutSpending(query, csv)
   } catch (e) {
     error.value = (e as Error).message
   } finally {
@@ -50,9 +50,14 @@ async function ask(q?: string) {
 
 <template>
   <div class="max-w-3xl">
-    <h1 class="text-xs uppercase tracking-[0.2em] mb-1">Ask your money</h1>
+    <div class="flex items-center justify-between mb-1">
+      <h1 class="text-xs uppercase tracking-[0.2em]">Ask your money</h1>
+      <span class="text-[10px] text-muted border border-line px-2 py-0.5 rounded-full font-mono">
+        {{ getAiDisplayName() }}
+      </span>
+    </div>
     <p class="text-xs text-muted mb-4 leading-relaxed">
-      Ask anything about your spending in plain English. Gemini answers from your on-device
+      Ask anything about your spending in plain English. {{ getAiDisplayName() }} answers from your on-device
       transactions — nothing is stored anywhere else.
     </p>
 

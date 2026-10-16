@@ -58,8 +58,21 @@ export interface MerchantRule {
   updatedAt: number
 }
 
+export type AiProvider = 'bedrock' | 'gemini'
+
 export interface Settings {
   oauthClientId: string
+  aiProvider: AiProvider
+  /** AWS Bedrock model, default amazon.nova-lite-v1:0 */
+  bedrockModel: string
+  /** AWS Bedrock region, e.g. us-east-1 */
+  bedrockRegion: string
+  /** Proxy URL to bypass CORS and sign requests, default /api/bedrock */
+  bedrockEndpoint: string
+  /** Optional AWS credentials (if not set in env or ~/.aws/credentials) */
+  awsAccessKeyId: string
+  awsSecretAccessKey: string
+  awsSessionToken: string
   geminiApiKey: string
   geminiModel: string
   /** sender addresses/domains used to find transaction emails */
