@@ -1,48 +1,56 @@
-# Ledger sync Worker
+# Ledger Cloudflare Worker
 
-A tiny Cloudflare Worker that stores one **encrypted blob** per sync id in KV. It is a dumb
-key-value store — the blob is AES-GCM ciphertext produced in your browser, so this Worker (and
-Cloudflare) never see your transactions in plaintext.
+A lightweight Cloudflare Worker that provides:
+1. **AWS Bedrock Nova Lite Proxy**: Signs requests with AWS SigV4 server-side and routes them to Amazon Bedrock (`amazon.nova-lite-v1:0`), completely resolving browser CORS constraints.
+2. **Encrypted Cross-Device Sync**: Stores end-to-end encrypted AES-GCM transaction blobs in Cloudflare KV. The Worker and Cloudflare never see your data in plaintext.
+
+---
 
 ## Deploy (free, ~3 minutes)
 
-You need a free Cloudflare account. From this `worker/` folder:
+From this `worker/` directory:
 
 ```sh
-# 1. log in (opens a browser once)
+# 1. Log in to your free Cloudflare account (opens browser once)
 npx wrangler login
 
-# 2. create the KV namespace that holds the blobs
+# 2. (Optional, if setting up sync) Create the KV namespace for encrypted blobs:
 npx wrangler kv namespace create LEDGER
-#    -> copy the printed id into wrangler.toml (id = "...")
+# Copy the printed id into wrangler.toml (id = "...")
 
-# 3. deploy
+# 3. (Optional) Set AWS secrets on the Worker so you don't need keys in your browser:
+npx wrangler secret put AWS_ACCESS_KEY_ID
+npx wrangler secret put AWS_SECRET_ACCESS_KEY
+
+# 4. Deploy:
 npx wrangler deploy
-#    -> prints your Worker URL, e.g. https://ledger-sync.<you>.workers.dev
 ```
 
-## Connect the app
+Wrangler will print your deployed Worker URL:
+`https://ledger-sync.<your-subdomain>.workers.dev`
 
+---
+
+## Connect to Ledger
+
+### 1. For Bedrock Nova Lite AI
+In Ledger → **Settings → AI Engine**:
+* Set **Proxy Endpoint** to your Worker URL:  
+  `https://ledger-sync.<your-subdomain>.workers.dev/api/bedrock`
+* Click **Test Bedrock connection** to verify!
+
+### 2. For Encrypted Cross-Device Sync
 In Ledger → **Settings → Cloud sync**:
+1. Paste your Worker URL: `https://ledger-sync.<your-subdomain>.workers.dev`
+2. Click **Generate** to create a sync ID.
+3. Choose a strong **passphrase** (used for local AES-GCM encryption before sending).
+4. Click **Push now** on your first device, and **Pull now** on other devices.
+5. Turn on **Auto sync** to sync automatically in the background.
 
-1. Paste the Worker URL from step 3.
-2. Click **Generate** to create a sync id (an unguessable secret — keep it private).
-3. Choose a strong **passphrase**. Your ledger is encrypted with it before it ever leaves the
-   device; if you lose the passphrase the synced copy is unrecoverable by design.
-4. On your **first device**, click **Push now**.
-5. On your **other device**, enter the *same* Worker URL, sync id, and passphrase, then click
-   **Pull now**.
+---
 
-Turn on **Auto sync** to pull on open and push a few seconds after any change.
+## Security & Costs
 
-## Security notes
-
-- End-to-end encrypted: the server stores only ciphertext, an iv, a salt, and a timestamp.
-- Access is gated by the unguessable sync id. Treat it like a password.
-- Conflict handling is last-write-wins on the whole ledger — fine for one person across a couple
-  of devices, not a multi-user merge engine.
-
-## Cost
-
-Comfortably inside Cloudflare's free tier (Workers: 100k requests/day; KV: 100k reads &
-1k writes/day, 1 GB) for personal use.
+* **Zero Plaintext Storage**: Sync payloads are AES-256-GCM ciphertext encrypted locally on-device.
+* **AWS Credential Isolation**: AWS keys can be stored directly as encrypted Worker secrets (`wrangler secret put`), never exposed to client browsers.
+* **Free Tier**: Comfortably operates within Cloudflare's generous free tier (100,000 requests/day).
